@@ -5,11 +5,13 @@ import android.accounts.AccountManager;
 import android.annotation.SuppressLint;
 import android.app.LoaderManager;
 import android.content.ContentProviderOperation;
+import android.content.Context;
 import android.content.CursorLoader;
 import android.content.Loader;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
@@ -21,6 +23,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 
 import static android.database.Cursor.FIELD_TYPE_BLOB;
@@ -101,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 /*Intent nextScreen = new Intent(MainActivity.this, OperationActivity.class);
                 startActivity(nextScreen);*/
 
-                addContact(getSampleContact("003 Bapu"));
+                addContact(getSampleContact("004 Bhargav"));
 
             }
         });
@@ -132,8 +138,93 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 // Put the result Cursor in the adapter for the ListView
 //        cursorAdapter.swapCursor(cursor);
         contactsList.setAdapter(new CustomAdapter(MainActivity.this, cursor));
+
+        printAllIds(cursor);
     }
 
+    private void printAllIds(Cursor cursor) {
+        if (cursor != null && cursor.getCount() > 0) {
+
+            while (cursor.moveToNext()) {
+                String contactID = cursor.getString(cursor.getColumnIndex(_ID));
+                String nameRawContactId = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.NAME_RAW_CONTACT_ID));
+                String displayName = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME));
+
+                printRawInfo(contactID, nameRawContactId, displayName);
+            }
+        }
+    }
+
+    private void printRawInfo(String contactID, String nameRawContactId, String displayName) {
+        String selection = ContactsContract.RawContacts.CONTACT_ID + "= ?";
+        ArrayList<String> selectionArgs = new ArrayList();
+        selectionArgs.add(contactID);
+        final String[] projection = null;
+
+        Cursor cursor = this.getContentResolver().query(ContactsContract.RawContacts.CONTENT_URI, projection, selection,
+                selectionArgs.toArray(new String[selectionArgs.size()]), null);
+
+//        ArrayList<String> rawIds = new ArrayList<>();
+
+        while (cursor != null && cursor.moveToNext()) {
+//            rawIds.add(cursor.getString(cursor.getColumnIndex(_ID)));
+            String rawId = cursor.getString(cursor.getColumnIndex(_ID));
+            String accountType = cursor.getString(cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE));
+            printDataInfo(contactID, nameRawContactId, displayName, rawId, accountType);
+        }
+
+
+        if (!cursor.isClosed()) cursor.close();
+    }
+
+    private void printDataInfo(String contactID, String nameRawContactId, String displayName, String rawId, String accountType) {
+        String selection = ContactsContract.Data.RAW_CONTACT_ID + "= ?";
+        ArrayList<String> selectionArgs = new ArrayList();
+        selectionArgs.add(rawId);
+        final String[] projection = null;
+
+        Cursor cursor = this.getContentResolver().query(ContactsContract.Data.CONTENT_URI, projection, selection,
+                selectionArgs.toArray(new String[selectionArgs.size()]), null);
+
+        String fullInfo = "\n";
+        while (cursor != null && cursor.moveToNext()) {
+            String dataId = cursor.getString(cursor.getColumnIndex(_ID));
+//            System.out.println(contactID + "\t" + nameRawContactId + "\t" + rawId + "\t" + dataId + "\t" + displayName + "\t" + accountType);
+            fullInfo += contactID + "\t" + nameRawContactId + "\t" + rawId + "\t" + dataId + "\t" + displayName + "\t" + accountType + "\n";
+
+        }
+
+        writeToFile(fullInfo);
+
+
+        if (!cursor.isClosed()) cursor.close();
+    }
+
+    private void writeToFile(String data) {
+        File path = Environment.getExternalStorageDirectory();
+        File file = new File(path, "/contact_info.txt");
+//        if(!file.exists()){
+//            try {
+//                file.createNewFile();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+        FileOutputStream stream = null;
+        try {
+            stream = new FileOutputStream(file,true);
+            stream.write(data.getBytes());
+            stream.close();
+//            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(openFileOutput(Environment.getExternalStorageDirectory().getPath()+
+//                            "/config.txt",
+//                    Context.MODE_PRIVATE));
+//            outputStreamWriter.write(data);
+//            outputStreamWriter.close();
+            Log.i("Write to file", "File write complete ");
+        } catch (IOException e) {
+            Log.e("Exception", "File write failed: " + e.toString());
+        }
+    }
 
     @Override
     public void onLoaderReset(@NonNull Loader<Cursor> loader) {
@@ -220,8 +311,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     private Contact getSampleContact(String name) {
         Contact contact = new Contact(null);
         contact.givenName = name;
-        contact.familyName = "Mota";
-        contact.nickname = "Hitman";
+        contact.familyName = "Vasani";
+        contact.nickname = "Bapu";
         contact.company = "IPL";
 
         ArrayList<Item> emailList = new ArrayList<>();
@@ -230,7 +321,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         contact.emails = emailList;
 
         ArrayList<Item> phoneList = new ArrayList<>();
-        phoneList.add(new Item(null, "Work", "+919538715743"));
+        phoneList.add(new Item(null, "Work", "+919909743132"));
         phoneList.add(new Item(null, "Personal", "0091789463"));
         contact.phones = phoneList;
 
