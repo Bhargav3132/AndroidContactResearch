@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 /*Intent nextScreen = new Intent(MainActivity.this, OperationActivity.class);
                 startActivity(nextScreen);*/
 
-                addContact(getSampleContact("002 Virat"));
+                addContact(getSampleContact("003 Bapu"));
 
             }
         });
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
         while (cursor != null && cursor.moveToNext()) {
             rawIds.add(cursor.getString(cursor.getColumnIndex(_ID)));
-            message += "New RAW\n";
+            message += "\n========New RAW=======\n";
             for (String columnName : columnNames) {
                 if (cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
                     String value = cursor.getString(cursor.getColumnIndex(columnName));
@@ -195,20 +195,22 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         Cursor cursor = this.getContentResolver().query(ContactsContract.Data.CONTENT_URI, projection, selection,
                 selectionArgs.toArray(new String[selectionArgs.size()]), null);
         String[] columnNames = cursor.getColumnNames();
-        String message = "\n";
+
+        Log.w("Full Data Contact:- ", "");
 
         while (cursor != null && cursor.moveToNext()) {
-            message += "\n--------New DATA--------\n";
+            String message = "\n";
+            Log.w("Full Data Contact:- ", "\n--------New DATA--------\n");
             for (String columnName : columnNames) {
                 if (cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
                     String value = cursor.getString(cursor.getColumnIndex(columnName));
-                    message += columnName + " = " + value + "\n";
 
+                    message += columnName + "=" + value + "\n";
                 }
             }
+            Log.w("", message);
         }
 
-        Log.w("Full Data Contact:- ", message);
 
         if (!cursor.isClosed()) cursor.close();
 
@@ -218,28 +220,30 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     private Contact getSampleContact(String name) {
         Contact contact = new Contact(null);
         contact.givenName = name;
-        contact.familyName = "Kohli";
-        contact.nickname = "Chickoo";
-        contact.company = "BCCI";
+        contact.familyName = "Mota";
+        contact.nickname = "Hitman";
+        contact.company = "IPL";
 
         ArrayList<Item> emailList = new ArrayList<>();
-        emailList.add(new Item(null, "Work", "virat@bcci.com"));
-        emailList.add(new Item(null, "Personal", "virat@gmail.com"));
+        emailList.add(new Item(null, "Work", "rohit@bcci.com"));
+        emailList.add(new Item(null, "Personal", "sharma@gmail.com"));
         contact.emails = emailList;
 
         ArrayList<Item> phoneList = new ArrayList<>();
-        phoneList.add(new Item(null, "Work", "079123456798"));
-        phoneList.add(new Item(null, "Personal", "091789463"));
+        phoneList.add(new Item(null, "Work", "+919538715743"));
+        phoneList.add(new Item(null, "Personal", "0091789463"));
         contact.phones = phoneList;
 
         ArrayList<Item> webList = new ArrayList<>();
-        webList.add(new Item(null, "Work", "www.bcci.com"));
-        webList.add(new Item(null, "Home", "www.anushka.com"));
+        webList.add(new Item(null, "Work", "www.ipl.com"));
+        webList.add(new Item(null, "Home", "www.test.com"));
         contact.websites = webList;
 
         ArrayList<PostalAddress> addressList = new ArrayList<>();
         addressList.add(new PostalAddress(null, "Home", "123-Park View", "Law Garden", "Ahmedabad", "382210", "West", "India", null));
         contact.postalAddresses = addressList;
+
+        contact.note = "Winner of ipl 2020";
 
         return contact;
     }
