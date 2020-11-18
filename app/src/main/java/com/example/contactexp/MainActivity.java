@@ -5,13 +5,18 @@ import android.accounts.AccountManager;
 import android.annotation.SuppressLint;
 import android.app.LoaderManager;
 import android.content.ContentProviderOperation;
-import android.content.Context;
+import android.content.ContentProviderResult;
+import android.content.ContentResolver;
 import android.content.CursorLoader;
+import android.content.Intent;
 import android.content.Loader;
+import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.RemoteException;
+import android.provider.BaseColumns;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
@@ -26,8 +31,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static android.database.Cursor.FIELD_TYPE_BLOB;
 import static android.database.Cursor.FIELD_TYPE_NULL;
@@ -89,13 +96,13 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
         AccountManager accountManager = AccountManager.get(this); //this is Activity
         Account account = new Account("Known2Me", "com.known2me");
+        Account[] accounts = accountManager.getAccounts();
         boolean success = accountManager.addAccountExplicitly(account, "password", null);
         if (success) {
             Log.d(TAG, "Account created");
         } else {
             Log.d(TAG, "Account creation failed. Look at previous logs to investigate");
         }
-
 
         contactsList = findViewById(android.R.id.list);
 
@@ -107,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 /*Intent nextScreen = new Intent(MainActivity.this, OperationActivity.class);
                 startActivity(nextScreen);*/
 
-                addContact(getSampleContact("004 Bhargav"));
+                addContact(getSampleContact("00 New Info"));
 
             }
         });
@@ -139,7 +146,75 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 //        cursorAdapter.swapCursor(cursor);
         contactsList.setAdapter(new CustomAdapter(MainActivity.this, cursor));
 
-        printAllIds(cursor);
+//        printAllIds(cursor);
+
+//        Map<String, String> idAccountMap = getAllRawIdsWithAccountType(cursor);
+    }
+
+    public Map<String, String> getAllRawIdsWithAccountType(Cursor contactCursor) {
+        Log.d(TAG, "Total contacts : " + contactCursor.getCount());
+        Map<String, String> dataMap = new HashMap<>();
+        ArrayList<String> otherContactList = new ArrayList<>();
+        ArrayList<String> k2mContactList = new ArrayList<>();
+        if (contactCursor != null && contactCursor.getCount() > 0) {
+
+            while (contactCursor.moveToNext()) {
+                String contactID = contactCursor.getString(contactCursor.getColumnIndex(_ID));
+                String nameRawContactId = contactCursor.getString(contactCursor.getColumnIndex(ContactsContract.Contacts.NAME_RAW_CONTACT_ID));
+
+                String selection = ContactsContract.RawContacts.CONTACT_ID + "= ?";
+                ArrayList<String> selectionArgs = new ArrayList();
+                selectionArgs.add(contactID);
+                final String[] projection = null;
+
+                Cursor cursor = this.getContentResolver().query(ContactsContract.RawContacts.CONTENT_URI, projection, selection,
+                        selectionArgs.toArray(new String[selectionArgs.size()]), null);
+
+                boolean isK2MContact = false;
+                while (cursor != null && cursor.moveToNext()) {
+//                    String rawId = cursor.getString(cursor.getColumnIndex(_ID));
+                    String accountType = cursor.getString(cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE));
+                    if (accountType != null && accountType.equals("com.known2me")) {
+                        isK2MContact = true;
+                    }
+                }
+
+                if (isK2MContact) {
+                    k2mContactList.add(contactID);
+                } else {
+                    otherContactList.add(contactID);
+                }
+
+                if (!cursor.isClosed()) cursor.close();
+
+            }
+
+//            if (!contactCursor.isClosed()) contactCursor.close();
+        }
+
+        // add new raw for other contacts with k2m account type
+        addNewRawForContact(otherContactList);
+
+        Log.d(TAG, "K2M contacts : " + k2mContactList.size());
+        Log.d(TAG, "Other contacts : " + otherContactList.size());
+
+
+        return dataMap;
+    }
+
+    private void addNewRawForContact(ArrayList<String> otherContactList) {
+//        1329
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+        ContentProviderOperation.Builder op = ContentProviderOperation.newUpdate(ContactsContract.RawContacts.CONTENT_URI)
+                .withValue(ContactsContract.RawContacts.CONTACT_ID, "1329")
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, "com.known2me")
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, "Known2Me");
+        ops.add(op.build());
+        try {
+            getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+        } catch (OperationApplicationException | RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     private void printAllIds(Cursor cursor) {
@@ -186,11 +261,13 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         Cursor cursor = this.getContentResolver().query(ContactsContract.Data.CONTENT_URI, projection, selection,
                 selectionArgs.toArray(new String[selectionArgs.size()]), null);
 
-        String fullInfo = "\n";
+        String fullInfo =
+                "Contact._Id" + "\t" + "Contact.name_raw_contact_id" + "\t" + "RawContacts._Id" + "\t" + "Data._Id" + "\t" + "accountType" +
+                        "\t" + "displayName" + "\n";
         while (cursor != null && cursor.moveToNext()) {
             String dataId = cursor.getString(cursor.getColumnIndex(_ID));
 //            System.out.println(contactID + "\t" + nameRawContactId + "\t" + rawId + "\t" + dataId + "\t" + displayName + "\t" + accountType);
-            fullInfo += contactID + "\t" + nameRawContactId + "\t" + rawId + "\t" + dataId + "\t" + displayName + "\t" + accountType + "\n";
+            fullInfo += contactID + "\t" + nameRawContactId + "\t" + rawId + "\t" + dataId + "\t" + accountType + "\t" + displayName + "\n";
 
         }
 
@@ -212,15 +289,9 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 //        }
         FileOutputStream stream = null;
         try {
-            stream = new FileOutputStream(file,true);
+            stream = new FileOutputStream(file, true);
             stream.write(data.getBytes());
             stream.close();
-//            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(openFileOutput(Environment.getExternalStorageDirectory().getPath()+
-//                            "/config.txt",
-//                    Context.MODE_PRIVATE));
-//            outputStreamWriter.write(data);
-//            outputStreamWriter.close();
-            Log.i("Write to file", "File write complete ");
         } catch (IOException e) {
             Log.e("Exception", "File write failed: " + e.toString());
         }
@@ -307,12 +378,110 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
 
     }
+//1939r5499-1313192C2A48524246502A.3789r6004-1313192C2A48524246502A.3458i637bff7e0b71832b
+//1939r5499-1313192C2A48524246502A.3458i637bff7e0b71832b.3789r7235-1313192C2A48524246502A
+
+    /*private void updateContact(Contact contact){
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+        ContentProviderOperation.Builder op = null;
+
+        if (contact.identifier == null || contact.identifier.isEmpty()) {
+            return ;
+        }
+
+        String rawContactId = getRawContactId(contact.identifier);
+
+        Log.e(this.getClass().getSimpleName(), "rawContactId : " + rawContactId);
+
+        if (rawContactId == null || rawContactId.isEmpty()) {
+            Log.e(this.getClass().getSimpleName(), "Raw id is null for " + contact.identifier);
+            return ;
+        }
+
+        // fetch current contact
+
+        List<String> identifiers = new ArrayList<>();
+        identifiers.add(contact.identifier);
+        Cursor cursor = getCursorForContactIdentifiers(identifiers, true);
+
+        String structureNameId = null;
+        String organizationId = null;
+        String nicknameId = null;
+        String sipId = null;
+        String noteId = null;
+        Map<String, String> existingLabelIdMap = new HashMap<>();
+        String birthdayId = null;
+        while (cursor != null && cursor.moveToNext()) {
+            String id = cursor.getString(cursor.getColumnIndex(BaseColumns._ID));
+            String mimeType = cursor.getString(cursor.getColumnIndex(ContactsContract.Data.MIMETYPE));
+
+            if (mimeType.equals(CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)) {
+                structureNameId = id;
+            } else if (mimeType.equals(CommonDataKinds.Organization.CONTENT_ITEM_TYPE)) {
+                organizationId = id;
+            } else if (mimeType.equals(CommonDataKinds.Nickname.CONTENT_ITEM_TYPE)) {
+                nicknameId = id;
+            } else if (mimeType.equals(CommonDataKinds.SipAddress.CONTENT_ITEM_TYPE)) {
+                sipId = id;
+            } else if (mimeType.equals(CommonDataKinds.Note.CONTENT_ITEM_TYPE)) {
+                noteId = id;
+            } else if (mimeType.equals(CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE)) {
+                String groupId = cursor.getString(cursor.getColumnIndex(CommonDataKinds.GroupMembership.DATA1));
+                existingLabelIdMap.put(groupId, id);
+            } else if (mimeType.equals(CommonDataKinds.Event.CONTENT_ITEM_TYPE)) {
+                int eventType = cursor.getInt(cursor.getColumnIndex(CommonDataKinds.Event.TYPE));
+                if (eventType == CommonDataKinds.Event.TYPE_BIRTHDAY) {
+                    birthdayId = id;
+                }
+            }
+        }
+
+        ArrayList<Contact> contactList = getContactsFrom(cursor);
+
+        if (contactList.size() == 0) {
+            return ;
+        }
+
+        Contact currentContact = contactList.get(0);
+
+        String queryCommon = BaseColumns._ID + "=? AND " + ContactsContract.Data.MIMETYPE + "=?";
+        if (structureNameId == null) {
+            Log.e(this.getClass().getSimpleName(), "Inserting structure name");
+            // insert
+            op = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI);
+            op.withValue(ContactsContract.Data.RAW_CONTACT_ID, rawContactId);
+            op.withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+        } else {
+            Log.e(this.getClass().getSimpleName(), "Updating structure id :" + structureNameId);
+            // update
+            if (equalsStructureName(contact, currentContact)) {
+                op = null;
+            } else {
+                op = ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI);
+                String[] queryArg = new String[]{structureNameId, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE};
+                op.withSelection(queryCommon, queryArg);
+            }
+        }
+
+        if (op != null) {
+            // Update data (name)
+            op.withValue(StructuredName.GIVEN_NAME, contact.givenName)
+                    .withValue(StructuredName.MIDDLE_NAME, contact.middleName)
+                    .withValue(StructuredName.FAMILY_NAME, contact.familyName)
+                    .withValue(StructuredName.PREFIX, contact.prefix)
+                    .withValue(StructuredName.SUFFIX, contact.suffix)
+                    .withValue(StructuredName.PHONETIC_GIVEN_NAME, contact.phoneticGivenName)
+                    .withValue(StructuredName.PHONETIC_MIDDLE_NAME, contact.phoneticMiddleName)
+                    .withValue(StructuredName.PHONETIC_FAMILY_NAME, contact.phoneticFamilyName);
+            ops.add(op.build());
+        }
+    }*/
 
     private Contact getSampleContact(String name) {
         Contact contact = new Contact(null);
         contact.givenName = name;
-        contact.familyName = "Vasani";
-        contact.nickname = "Bapu";
+        contact.familyName = "Mono";
+        contact.nickname = "Motorola";
         contact.company = "IPL";
 
         ArrayList<Item> emailList = new ArrayList<>();
@@ -321,8 +490,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         contact.emails = emailList;
 
         ArrayList<Item> phoneList = new ArrayList<>();
-        phoneList.add(new Item(null, "Work", "+919909743132"));
-        phoneList.add(new Item(null, "Personal", "0091789463"));
+        phoneList.add(new Item(null, "Work", "+91123456789"));
+        phoneList.add(new Item(null, "Personal", "00987654321"));
         contact.phones = phoneList;
 
         ArrayList<Item> webList = new ArrayList<>();
@@ -438,5 +607,104 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         }
     }
 
+    public void addK2MContactInfo(String contactId) {
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
 
+        ContentProviderOperation.Builder op = ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, "com.known2me")
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, "Known2Me");
+        ops.add(op.build());
+
+        op = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE)
+                .withValue(StructuredName.GIVEN_NAME, "1111")
+//                .withValue(StructuredName.MIDDLE_NAME, contact.middleName)
+                .withValue(StructuredName.FAMILY_NAME, "One");
+//                .withValue(StructuredName.PREFIX, contact.prefix)
+//                .withValue(StructuredName.SUFFIX, contact.suffix);
+        ops.add(op.build());
+
+        try {
+            ContentProviderResult[] results = this.getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+//            long contactId = 0;
+            final String[] projection = new String[]{ContactsContract.RawContacts.CONTACT_ID};
+            final Cursor cursor = getContentResolver().query(results[0].uri, null, null, null, null);
+
+            String[] columnNames = cursor.getColumnNames();
+            String message = "\n";
+
+            String rawId = null;
+
+            while (cursor != null && cursor.moveToNext()) {
+                rawId = cursor.getString(cursor.getColumnIndex(_ID));
+                message = "\n========New RAW=======\n";
+                for (String columnName : columnNames) {
+                    if (cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && cursor.getType(cursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
+                        String value = cursor.getString(cursor.getColumnIndex(columnName));
+                        message += columnName + " = " + value + "\n";
+
+                    }
+                }
+                Log.d(TAG, message);
+            }
+
+            if (rawId != null) {
+                joinIntoExistingContact(Long.parseLong(contactId), Long.parseLong(rawId));
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void joinIntoExistingContact(long existingContactId, long newRawContactId) {
+
+        // get all existing raw-contact-ids that belong to the contact-id
+        List<Long> existingRawIds = new ArrayList<>();
+        Cursor cur = getContentResolver().query(ContactsContract.RawContacts.CONTENT_URI, new String[]{ContactsContract.RawContacts._ID}, ContactsContract.RawContacts.CONTACT_ID + "=" + existingContactId, null, null);
+        while (cur.moveToNext()) {
+            existingRawIds.add(cur.getLong(0));
+        }
+        cur.close();
+        Log.i("Join", "Found " + existingRawIds.size() + " raw-contact-ids");
+
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+
+        // go over all existing raw ids, and join with our new one
+        for (Long existingRawId : existingRawIds) {
+            ContentProviderOperation.Builder builder = ContentProviderOperation.newUpdate(ContactsContract.AggregationExceptions.CONTENT_URI);
+            builder.withValue(ContactsContract.AggregationExceptions.TYPE, ContactsContract.AggregationExceptions.TYPE_KEEP_TOGETHER);
+            builder.withValue(ContactsContract.AggregationExceptions.RAW_CONTACT_ID1, newRawContactId);
+            builder.withValue(ContactsContract.AggregationExceptions.RAW_CONTACT_ID2, existingRawId);
+            ops.add(builder.build());
+        }
+
+        try {
+            getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+        } catch (OperationApplicationException | RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void openForEdit(String contactId, String lookup){
+        Intent editIntent = new Intent(Intent.ACTION_EDIT);
+        /*
+         * Sets the contact URI to edit, and the data type that the
+         * Intent must match
+         */
+        Uri selectedContactUri = ContactsContract.Contacts.getLookupUri(Long.parseLong(contactId), lookup);
+        editIntent.setDataAndType(selectedContactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE);
+        // Sets the special extended data for navigation
+        editIntent.putExtra("finishActivityOnSaveCompleted", true);
+        // Sends the Intent
+        startActivityForResult(editIntent,101);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.i(TAG,"onActivityResult "+requestCode);
+    }
 }

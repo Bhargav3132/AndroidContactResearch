@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.Button;
 import android.widget.CursorAdapter;
 import android.widget.TextView;
 
@@ -176,7 +177,11 @@ public class CustomAdapter extends CursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         TextView textView = (TextView) view.findViewById(R.id.title);
+        Button btnDetail = (Button) view.findViewById(R.id.detail);
+        Button btnEdit = (Button) view.findViewById(R.id.edit);
         textView.setText(cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)));
+        btnDetail.setTag(cursor.getPosition());
+        btnEdit.setTag(cursor.getPosition());
         textView.setTag(cursor.getPosition());
 
         textView.setOnClickListener(new View.OnClickListener() {
@@ -203,9 +208,73 @@ public class CustomAdapter extends CursorAdapter {
                 }
                 Log.e("Full Message:-", message);
 
+//                ((MainActivity)context).getAllRawIdsWithAccountType(tagCursor);
+                ((MainActivity)context).addK2MContactInfo(contactID);
+//                ((MainActivity) context).joinIntoExistingContact(Long.parseLong(contactID), 5552l);
+//                ((MainActivity)context).displayRawContact(contactID);
+//                ((MainActivity)context).displayRawContact("5556");
+
+            }
+        });
+        btnDetail.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                int pos = (int) v.getTag();
+
+                Cursor tagCursor = cursorGlobal;
+                tagCursor.moveToPosition(pos);
+
+                String[] columnNames = tagCursor.getColumnNames();
+                String message = "";
+
+                String contactID = tagCursor.getString(tagCursor.getColumnIndex(_ID));
+//                String contactID = (String) v.getTag();
+
+                for (String columnName : columnNames) {
+                    if (tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
+                        String value = tagCursor.getString(tagCursor.getColumnIndex(columnName));
+                        message += columnName + " = " + value + "\n";
+
+                    }
+                }
+                Log.e("Full Message:-", message);
+
+//                ((MainActivity)context).getAllRawIdsWithAccountType(tagCursor);
+//                ((MainActivity)context).addK2MContactInfo(contactID);
+//                ((MainActivity) context).joinIntoExistingContact(Long.parseLong(contactID), 5552l);
                 ((MainActivity)context).displayRawContact(contactID);
+//                ((MainActivity)context).displayRawContact("5556");
 
+            }
+        });
+        btnEdit.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 
+                int pos = (int) v.getTag();
+
+                Cursor tagCursor = cursorGlobal;
+                tagCursor.moveToPosition(pos);
+
+                String[] columnNames = tagCursor.getColumnNames();
+                String message = "";
+
+                String contactID = tagCursor.getString(tagCursor.getColumnIndex(_ID));
+                String lookup = tagCursor.getString(tagCursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY));
+//                String contactID = (String) v.getTag();
+
+//                for (String columnName : columnNames) {
+//                    if (tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
+//                        String value = tagCursor.getString(tagCursor.getColumnIndex(columnName));
+//                        message += columnName + " = " + value + "\n";
+//
+//                    }
+//                }
+//                Log.e("Full Message:-", message);
+
+//                ((MainActivity)context).openForEdit(contactID,lookup);
+                ((MainActivity)context).addK2MContactInfo(contactID);
             }
         });
     }
