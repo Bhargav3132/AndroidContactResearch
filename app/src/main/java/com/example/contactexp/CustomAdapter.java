@@ -229,6 +229,7 @@ public class CustomAdapter extends CursorAdapter {
                 String message = "";
 
                 String contactID = tagCursor.getString(tagCursor.getColumnIndex(_ID));
+                String lookUpKey = tagCursor.getString(tagCursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY));
 //                String contactID = (String) v.getTag();
 
                 for (String columnName : columnNames) {
@@ -244,6 +245,7 @@ public class CustomAdapter extends CursorAdapter {
 //                ((MainActivity)context).addK2MContactInfo(contactID);
 //                ((MainActivity) context).joinIntoExistingContact(Long.parseLong(contactID), 5552l);
                 ((MainActivity)context).displayRawContact(contactID);
+//                ((MainActivity)context).searchByLookUp(lookUpKey);
 //                ((MainActivity)context).displayRawContact("5556");
 
             }

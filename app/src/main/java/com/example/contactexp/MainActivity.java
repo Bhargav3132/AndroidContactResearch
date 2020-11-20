@@ -302,6 +302,44 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         // Delete the reference to the existing Cursor
     }
 
+    public void searchByLookUp(String lookUpKey) {
+
+        String[] lookUpKeyArray = lookUpKey.split("\\.");
+
+        Log.w(TAG, "Lookup before : " + lookUpKey);
+//        lookUpKey = lookUpKeyArray[2] + "." + lookUpKeyArray[0] + "." + lookUpKeyArray[1];
+//        lookUpKey = lookUpKeyArray[1] + "." + lookUpKeyArray[0];
+//       lookUpKey = lookUpKeyArray[1];
+        Log.w(TAG, "Lookup after : " + lookUpKey);
+        String selection = ContactsContract.Contacts.LOOKUP_KEY + "= ?";
+        ArrayList<String> selectionArgs = new ArrayList();
+        selectionArgs.add(lookUpKey);
+        final String[] projection = null;
+
+        Uri lookupUri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, lookUpKey);
+        Uri uri = ContactsContract.Contacts.lookupContact(this.getContentResolver(), lookupUri);
+
+        Cursor tagCursor = this.getContentResolver().query(uri, new String[]{ContactsContract.Contacts.LOOKUP_KEY}, null,
+                null, null);
+        String[] columnNames = tagCursor.getColumnNames();
+
+        String message = "";
+
+        tagCursor.moveToPosition(0);
+
+        String contactID = tagCursor.getString(tagCursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY));
+//                String contactID = (String) v.getTag();
+
+        for (String columnName : columnNames) {
+            if (tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_NULL && tagCursor.getType(tagCursor.getColumnIndex(columnName)) != FIELD_TYPE_BLOB) {
+                String value = tagCursor.getString(tagCursor.getColumnIndex(columnName));
+                message += columnName + " = " + value + "\n";
+
+            }
+        }
+        Log.i("Full Message:-", message);
+    }
+
     public void displayRawContact(String contactID) {
 
 
@@ -688,7 +726,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         }
     }
 
-    public void openForEdit(String contactId, String lookup){
+    public void openForEdit(String contactId, String lookup) {
         Intent editIntent = new Intent(Intent.ACTION_EDIT);
         /*
          * Sets the contact URI to edit, and the data type that the
@@ -699,12 +737,12 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         // Sets the special extended data for navigation
         editIntent.putExtra("finishActivityOnSaveCompleted", true);
         // Sends the Intent
-        startActivityForResult(editIntent,101);
+        startActivityForResult(editIntent, 101);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        Log.i(TAG,"onActivityResult "+requestCode);
+        Log.i(TAG, "onActivityResult " + requestCode);
     }
 }
